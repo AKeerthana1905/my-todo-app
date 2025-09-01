@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>To-Do List</title>
+
+  <style>
+    :root{
+      --bg:#0f172a;        /* slate-900 */
+      --panel:#111827;     /* gray-900 */
+      --muted:#94a3b8;     /* slate-400 */
+      --fg:#e5e7eb;        /* gray-200 */
+      --accent:#22c55e;    /* green-500 */
+      --accent-2:#38bdf8;  /* sky-400 */
+      --danger:#ef4444;    /* red-500 */
+      --shadow: 0 10px 25px rgba(0,0,0,.35);
+    }
+    * { box-sizing: border-box }
+    html, body { height: 100% }
+    body {
+  margin:0;
+  font:16px/1.4 system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+  color:var(--fg);
+
+  background:#000; /* solid black */
+  display:grid;
+  place-items:center;
+  padding:24px;
+  position:relative;
+}
+
+/* watermark effect */
+body::before {
+  content:"";
+  position:fixed;
+  top:50%;
+  left:50%;
+  transform:translate(-50%,-50%);
+  width:500px;   /* adjust size */
+  height:500px;
+  background:url('VECTORNEU LOGO.png') no-repeat center center;
+  background-size:contain;
+  opacity:0.15;   /* faint watermark */
+  z-index:-1;
+}
+    body{
+      margin:0; font:16px/1.4 system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+      color:var(--fg); background: radial-gradient(1200px 600px at 70% -10%, #1f2937, transparent), var(--bg);
+      display:grid; place-items:center; padding:24px;
+    }
+    .app{
+      width: min(900px, 100%);
+      background: linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,.01));
+      border:1px solid rgba(255,255,255,.06);
+      border-radius: 24px; padding: 22px 18px; box-shadow: var(--shadow);
+    }
+    header{ display:flex; align-items:center; gap:10px; padding:6px 10px 14px }
+    h1{ font-size: clamp(22px, 2.8vw, 28px); margin:0; letter-spacing:.5px }
+
+    .controls{ display:grid; grid-template-columns: 1fr 140px 110px; gap:10px; margin:10px }
+    .controls input[type="text"], .controls input[type="date"]{
+      width:100%; padding:12px 14px; border:1px solid rgba(255,255,255,.1); background:#0b1220; color:var(--fg);
+      border-radius: 12px; outline:none; box-shadow: inset 0 0 0 9999px rgba(255,255,255,.02);
+    }
+    .controls button{
+      padding:12px 14px; border:none; border-radius:12px; color:#04110a; background:var(--accent);
+      font-weight:600; cursor:pointer; box-shadow: 0 6px 14px rgba(34,197,94,.35);
+    }
+    .controls button:disabled{ opacity:.5; cursor:not-allowed }
+
+    .toolbar{ display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:10px; margin:6px 10px 14px }
+    .filters{ display:flex; gap:8px; }
+    .filters button{ border:1px solid rgba(255,255,255,.12); background:#0b1220; color:var(--fg); padding:8px 12px; border-radius:999px; cursor:pointer }
+    .filters button[aria-pressed="true"]{ background:var(--accent-2); color:#07131a; font-weight:700; border-color: transparent }
+
+    .progress-wrapper{
+      flex:1; display:flex; align-items:center; gap:10px; max-width:300px;
+    }
+    #progressBar{
+      flex:1; height:10px; border-radius:20px;
+      background:rgba(255,255,255,.1); overflow:hidden;
+      position:relative;
+    }
+    #progressBar div{
+      height:100%; width:0%;
+      background:var(--accent); transition:width .3s ease;
+    }
+    #progressText{ font-size:13px; color:var(--muted); min-width:40px; }
+
+    ul#list{ list-style:none; margin:10px; padding:0; display:grid; gap:8px }
+    li.todo{
+      display:grid; grid-template-columns: auto 1fr auto; gap:10px; align-items:center; padding:12px 12px; border-radius:16px;
+      background: linear-gradient(180deg, rgba(255,255,255,.05), rgba(255,255,255,.03));
+      border:1px solid rgba(255,255,255,.09);
+    }
+    li.todo[draggable="true"]{ cursor:grab }
+    li.todo.dragging{ opacity:.6; transform: scale(.99) }
+
+    .todo-left{ display:flex; gap:10px; align-items:center }
+    .todo-left input[type="checkbox"]{ width:20px; height:20px }
+    .title{ outline:none; border:none; background:transparent; color:var(--fg); font:inherit; width:100% }
+    .title[contenteditable="true"]{ border-bottom:1px dashed rgba(255,255,255,.25) }
+    .meta{ font-size:12px; color: var(--muted) }
+
+    .todo-actions{ display:flex; gap:8px }
+    .icon-btn{ background:#0b1220; border:1px solid rgba(255,255,255,.12); color:var(--fg); padding:8px 10px; border-radius:10px; cursor:pointer }
+    .icon-btn.danger{ border-color: rgba(239,68,68,.5); color:#ffd2d2 }
+
+    .footer{ display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; padding:10px; color:var(--muted) }
+    .clear-btn{ background:none; border:1px dashed rgba(255,255,255,.2); color:var(--fg); padding:8px 12px; border-radius:10px; cursor:pointer }
+
+    .empty{ opacity:.7; text-align:center; padding:26px }
+
+    /* States */
+    li.todo.completed .title{
+      text-decoration: line-through;
+      color: var(--muted);
+    }
+    li.todo.active{
+      border-left:4px solid var(--accent-2);
+    }
+    li.todo.overdue .meta{
+      color: var(--danger);
+      font-weight:600;
+    }
+    .section-label{
+      font-size:14px; font-weight:600; margin:16px 10px 6px;
+      color: var(--accent-2);
+    }
+
+    @media (max-width: 700px){
+      .controls{ grid-template-columns: 1fr 1fr; }
+      .controls input[type="date"]{ grid-column: span 2 }
+    }
+  </style>
+</head>
+<body>
+  <main class="app" aria-labelledby="app-title">
+    <header>
+      <h1 id="app-title">Task Tracker</h1>
+    </header>
+
+    <div class="controls" aria-label="Add a task">
+      <input id="newTitle" type="text" placeholder="What do you need to do? (Tip: press Enter)" aria-label="Task title" />
+      <input id="newDue" type="date" aria-label="Due date" />
+      <button id="addBtn" type="button" title="Add task" disabled>Add</button>
+    </div>
+
+    <div class="toolbar" role="toolbar" aria-label="View options">
+      <div class="filters" role="group" aria-label="Filters">
+        <button data-filter="all" aria-pressed="true">All</button>
+        <button data-filter="active" aria-pressed="false">Active</button>
+        <button data-filter="completed" aria-pressed="false">Completed</button>
+      </div>
+      <div class="progress-wrapper">
+        <div id="progressBar"><div></div></div>
+        <span id="progressText"></span>
+      </div>
+    </div>
+
+    <ul id="list" aria-live="polite" aria-label="To-do items"></ul>
+
+    <div class="footer">
+      <span id="count"></span>
+      <button id="clearCompleted" class="clear-btn" type="button">Clear completed</button>
+    </div>
+  </main>
+
+  <script>
+    const $ = (sel, el=document) => el.querySelector(sel);
+    const $$ = (sel, el=document) => [...el.querySelectorAll(sel)];
+
+    const STORAGE_KEY = 'todos-v1';
+    let todos = load();
+    let filter = 'all';
+
+    const newTitle = $('#newTitle');
+    const newDue = $('#newDue');
+    const addBtn = $('#addBtn');
+    const list = $('#list');
+    const countEl = $('#count');
+    const stats = $('#stats');
+    const clearCompletedBtn = $('#clearCompleted');
+    const progressBar = $('#progressBar div');
+    const progressText = $('#progressText');
+
+    // --- Utilities ---
+    function uid(){ return Math.random().toString(36).slice(2,9) }
+    function save(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(todos)) }
+    function load(){ try{ return JSON.parse(localStorage.getItem(STORAGE_KEY)) || [] }catch{ return [] } }
+    function fmtDate(dStr){ if(!dStr) return ''; const d = new Date(dStr + 'T00:00:00'); return d.toLocaleDateString(undefined, {month:'short', day:'numeric'}) }
+
+    // --- Render ---
+    function render(){
+      list.innerHTML = '';
+      const filtered = todos.filter(t => filter==='all' || (filter==='active' ? !t.completed : t.completed));
+
+      if(!filtered.length){
+        const li = document.createElement('div');
+        li.className = 'empty';
+        li.textContent = 'No tasks here — add one above!';
+        list.appendChild(li);
+      } else {
+        filtered.sort((a,b) => (a.order ?? 0) - (b.order ?? 0));
+
+        if(filter === "all"){
+          // group Active
+          const activeList = filtered.filter(t=>!t.completed);
+          if(activeList.length){
+            const lbl = document.createElement('div');
+            lbl.className = 'section-label';
+            lbl.textContent = "🟢 Active Tasks";
+            list.appendChild(lbl);
+            activeList.forEach(t => {
+              const item = renderItem(t);
+              item.classList.add("active");
+              list.appendChild(item);
+            });
+          }
+
+          // group Completed
+          const completedList = filtered.filter(t=>t.completed);
+          if(completedList.length){
+            const lbl = document.createElement('div');
+            lbl.className = 'section-label';
+            lbl.textContent = "✅ Completed Tasks";
+            list.appendChild(lbl);
+            completedList.forEach(t => {
+              const item = renderItem(t);
+              item.classList.add("completed");
+              list.appendChild(item);
+            });
+          }
+        } else {
+          filtered.forEach(t=> list.appendChild(renderItem(t)));
+        }
+      }
+
+      // stats + progress
+      const active = todos.filter(t => !t.completed).length;
+      const total = todos.length;
+      countEl.textContent = `${active} active / ${total} total`;
+
+      const percent = completedPct();
+      progressBar.style.width = percent + "%";
+      progressText.textContent = `${percent}%`;
+    }
+
+   function completedPct(){
+  if(!todos.length) return 0;
+  const sum = todos.reduce((acc, t)=> acc + (t.progress || 0), 0);
+  return Math.round(sum / todos.length);
+}
+
+    function renderItem(t){
+      const li = document.createElement('li');
+      li.className = 'todo';
+      li.draggable = true;
+      li.dataset.id = t.id;
+
+      // overdue check
+      if(t.due && !t.completed){
+        const dueDate = new Date(t.due+"T00:00:00");
+        const today = new Date();
+        if(dueDate < today.setHours(0,0,0,0)){
+          li.classList.add("overdue");
+        }
+      }
+
+      // left
+      const left = document.createElement('div');
+      left.className = 'todo-left';
+      const cb = document.createElement('input');
+      cb.type = 'checkbox'; cb.checked = !!t.completed; cb.setAttribute('aria-label','Toggle complete');
+      const title = document.createElement('span');
+      title.className = 'title';
+      title.textContent = t.title;
+      title.contentEditable = true;
+      title.role = 'textbox';
+      title.ariaLabel = 'Edit title';
+      const meta = document.createElement('div');
+      meta.className = 'meta';
+      meta.textContent = t.due ? `Due ${fmtDate(t.due)}` : 'No due date';
+
+      left.append(cb, title, meta);
+
+      // actions
+      const actions = document.createElement('div');
+      actions.className = 'todo-actions';
+      const del = document.createElement('button'); del.className = 'icon-btn danger'; del.textContent = 'Delete'; del.title='Delete task';
+      const dup = document.createElement('button'); dup.className = 'icon-btn'; dup.textContent = 'Duplicate'; dup.title='Duplicate task';
+      actions.append(dup, del);
+
+      li.append(left, document.createElement('div'), actions);
+
+      // events
+      cb.addEventListener('change', ()=>{ t.completed = cb.checked; save(); render() });
+
+      title.addEventListener('keydown', e=>{
+        if(e.key === 'Enter') { e.preventDefault(); title.blur(); }
+      });
+      title.addEventListener('blur', ()=>{
+        const v = title.textContent.trim();
+        if(!v){ remove(t.id) } else { t.title = v; save(); render() }
+      });
+
+      del.addEventListener('click', ()=>{ remove(t.id) });
+      dup.addEventListener('click', ()=>{ duplicate(t.id) });
+
+      // drag & drop
+      li.addEventListener('dragstart', e=>{ li.classList.add('dragging'); e.dataTransfer.setData('text/plain', t.id) });
+      li.addEventListener('dragend', ()=> li.classList.remove('dragging'));
+      li.addEventListener('dragover', e=> e.preventDefault());
+      li.addEventListener('drop', e=>{
+        e.preventDefault();
+        const draggedId = e.dataTransfer.getData('text/plain');
+        if(draggedId && draggedId !== t.id){
+          reorder(draggedId, t.id);
+        }
+      });
+      function add(title, due){
+  const t = {
+    id: uid(),
+    title: title.trim(),
+    completed: false,
+    due: due || '',
+    created: Date.now(),
+    order: (todos.length? Math.max(...todos.map(x=>x.order??0))+1 : 0),
+    progress: 0   // NEW ✅ per-task progress
+  };
+  todos.push(t); save(); render();
+}
+
+
+// per-task progress
+const progressWrap = document.createElement('div');
+progressWrap.style.display = 'flex';
+progressWrap.style.alignItems = 'center';
+progressWrap.style.gap = '6px';
+progressWrap.style.marginTop = '6px';
+
+const range = document.createElement('input');
+range.type = 'range';
+range.min = 0;
+range.max = 100;
+range.value = t.progress;
+range.style.flex = '1';
+
+const pct = document.createElement('span');
+pct.style.fontSize = '12px';
+pct.style.color = 'var(--muted)';
+pct.textContent = t.progress + "%";
+
+progressWrap.append(range, pct);
+left.append(progressWrap);
+
+// update events
+range.addEventListener('input', ()=>{
+  t.progress = parseInt(range.value);
+  pct.textContent = t.progress + "%";
+  if(t.progress === 100) t.completed = true;
+  else t.completed = false;
+  save(); render();
+});
+
+      return li;
+    }
+
+    function reorder(idA, idB){
+      const a = todos.find(t=>t.id===idA); const b = todos.find(t=>t.id===idB);
+      if(!a || !b) return;
+      const tmp = a.order ?? 0; a.order = b.order ?? 0; b.order = tmp;
+      normalizeOrder(); save(); render();
+    }
+
+    function normalizeOrder(){
+      todos.sort((a,b)=> (a.order??0) - (b.order??0)).forEach((t,i)=> t.order = i);
+    }
+
+    // --- CRUD helpers ---
+    function add(title, due){
+  const t = {
+    id: uid(),
+    title: title.trim(),
+    completed: false,
+    due: due || '',
+    created: Date.now(),
+    order: (todos.length ? Math.max(...todos.map(x => x.order ?? 0)) + 1 : 0),
+    progress: 0   // ✅ added here
+  };
+  todos.push(t);
+  save();
+  render();
+}
+function load(){
+  try {
+    const data = JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
+    data.forEach(t => {
+      if (t.progress === undefined) t.progress = 0; // ensure field
+    });
+    return data;
+  } catch {
+    return [];
+  }
+}
+
+    function remove(id){ todos = todos.filter(t=>t.id!==id); save(); render() }
+    function duplicate(id){ const base = todos.find(t=>t.id===id); if(!base) return; add(base.title + ' (copy)', base.due) }
+    function clearCompleted(){ todos = todos.filter(t=>!t.completed); save(); render() }
+
+    // --- Event wiring ---
+    newTitle.addEventListener('input', ()=>{ addBtn.disabled = !newTitle.value.trim() });
+    newTitle.addEventListener('keydown', e=>{
+      if(e.key==='Enter' && newTitle.value.trim()){
+        add(newTitle.value, newDue.value); newTitle.value=''; newDue.value=''; addBtn.disabled=true; newTitle.focus();
+      }
+    });
+    addBtn.addEventListener('click', ()=>{
+      if(!newTitle.value.trim()) return; add(newTitle.value, newDue.value); newTitle.value=''; newDue.value=''; addBtn.disabled=true; newTitle.focus();
+    });
+
+    $$('.filters button').forEach(btn=> btn.addEventListener('click', ()=>{
+      $$('.filters button').forEach(b=> b.setAttribute('aria-pressed','false'));
+      btn.setAttribute('aria-pressed','true');
+      filter = btn.dataset.filter; render();
+    }));
+
+    clearCompletedBtn.addEventListener('click', clearCompleted);
+
+    // init
+    normalizeOrder();
+    render();
+  </script>
+</body>
+</html>
